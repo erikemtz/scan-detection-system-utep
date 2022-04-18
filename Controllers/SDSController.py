@@ -5,9 +5,7 @@ from typing import Dict, List
 from Database.DatabaseHelper import SDSDatabaseHelper
 from Controllers.CaptureController import CaptureController
 from Controllers.AnalysisManager import SDSAnalysisManager
-from main import delete_workspace
 
-@unique
 class SDSStateEnum(Enum):
     INIT_SYSTEM = 1
     WORKPLACE_CONSTRUCTION = 2
@@ -125,7 +123,6 @@ class SDSController:
             self._state = SDSStateEnum.INIT_WORKPLACE
 
     def change_workspace_context(self, workspace_name: str):
-        # print('db.change_workspace called')
         self._ensure_subsystems()
         self._workspace_name = workspace_name
         self._entire_workspace_context = self._db_connection.get_workspace_context(self._workspace_name)
@@ -137,17 +134,13 @@ class SDSController:
     ###### Project related functions ######
     def import_project(self, project: dict) -> bool:
         self._ensure_subsystems()
-        print(f'called import_project')
         if self._state is SDSStateEnum.INIT_WORKPLACE:
             workspace_name = self._entire_workspace_context['_id']
-            print(f'valid state')
             if self._db_connection.create_project(workspace_name, project= project):
-                print(f'imported project')
                 self.change_workspace_context(workspace_name)
                 return True
             # If the project is already made. Just add the project name
             else:
-                print(f'inserting project name in workspace')
                 self._db_connection.update_workspace_projects(workspace_name, project['_id'])
                 self.change_workspace_context(workspace_name)
                 return True
@@ -200,7 +193,6 @@ class SDSController:
                 data = self._db_connection.retrieve_project(project_name)
                 _file = open(directory, 'w')
                 #Write dictionary to json file
-                print(f'exporting data: {data}')
                 json.dump(data, _file)
                 _file.close()
                 self._state = SDSStateEnum.FILE_MANAGER_EXPORT_DIALOGUE
@@ -325,11 +317,12 @@ class SDSController:
 
     def run_scenario_units(self, scenario_name: str):
         self._ensure_subsystems()
-        if self._state is SDSStateEnum.INIT_CAPTURE_NETWORK:
-            # Do work here
-            scenario_dict = self.get_scenario_data(scenario_name)
-            self._cap_manager.start_services(scenario_dict)
-            self._state = SDSStateEnum.NETWORK_RUNNING
+
+        # Do work here
+        scenario_dict = self.get_scenario_data(scenario_name)
+        print(scenario_dict)
+        self._cap_manager.core_start_from_dictionary(scenario_dict)
+        self._state = SDSStateEnum.NETWORK_RUNNING
 
     def shutdown_virtual_machine(self):
         print("Shutting down virtual machine - sds controller")
@@ -344,6 +337,13 @@ class SDSController:
             # Do work here
             self._cap_manager.core_cleanup()
             self._state = SDSStateEnum.NETWORK_RUNNING
+
+    def stop_restore_core(self):
+        self._ensure_subsystems()
+        self._cap_manager.core_cleanup()
+
+    def start_services(self):
+        self._cap_manager.start_services()
 
     def scenarios_complete(self):
         self._ensure_subsystems()
