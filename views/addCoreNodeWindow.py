@@ -23,6 +23,10 @@ class Ui_addCoreNodes_window(object):
         parent_window.setMinimumSize(QtCore.QSize(400, 600))
         parent_window.setMaximumSize(QtCore.QSize(400, 600))
 
+        # Generate random ID and random MAc
+        self.ID = self.generate_id()
+        self.MAC = self.generate_mac()
+
 
         # Label for ID
         self.label_id = QtWidgets.QLabel(parent_window)
@@ -153,7 +157,7 @@ class Ui_addCoreNodes_window(object):
                 parent_window,
                 selected_project_name = project_name,
                 selected_scenario_unit_name = scenario_name,
-                add_vm_node_function = create_new_nodes_function,
+                render_nodes_function = create_new_nodes_function,
                 old_node=node_to_edit
             ))
 
@@ -169,6 +173,7 @@ class Ui_addCoreNodes_window(object):
         '''
         nodes_list = []
 
+
         node_to_add = Node(
                 self.line_edit_id.text(),
                 self.line_edit_name.text(),
@@ -183,20 +188,31 @@ class Ui_addCoreNodes_window(object):
 
         # Add the core node to the scenario
         success: bool = add_nodes_function(selected_project_name, selected_scenario_unit_name, node_to_add, self.spin_box_number_of_nodes.value())
-        if not success:
+        if success == 'no-scan':
             node_insert_error = QtWidgets.QMessageBox()
             node_insert_error.setText("You must first add a scanning node to add a victim node!")
             node_insert_error.setIcon(QtWidgets.QMessageBox.Warning)
             node_insert_error.exec_()
             return success
+        if success == 'unique':
+            node_insert_error = QtWidgets.QMessageBox()
+            node_insert_error.setText('Node attribute collision.\nId, name, MAC, and IP must all be unique!')
+            node_insert_error.setIcon(QtWidgets.QMessageBox.warning)
+            node_insert_error.exec_()
+            return success
 
         parent_window.destroy()
-        return success
 
-    def edit_node_button_clicked(self, parent_window, selected_project_name: str, selected_scenario_unit_name, add_vm_node_function, old_node: Node):
+    def edit_node_button_clicked(self, parent_window, selected_project_name: str, selected_scenario_unit_name, render_nodes_function, old_node: Node):
         old_node.id = self.line_edit_id.text()
         old_node.name = self.line_edit_name.text()
         old_node.mac = self.line_edit_mac.text()
         old_node.ip = self.line_edit_ip.text()
-        add_vm_node_function(selected_scenario_unit_name)
+        render_nodes_function(selected_scenario_unit_name)
         parent_window.destroy()
+
+    def generate_id(self):
+        return str(random.randint(11, 998))
+
+    def generate_mac(self):
+        return str(RandMac("00:00:00:00:00:00"))

@@ -39,7 +39,7 @@ class Ui_CaptureManagerWindow(object):
 
         parent_window.setObjectName("CaptureManagerWindow")
         parent_window.resize(1400, 700)
-        parent_window.setMinimumSize(QtCore.QSize(1400, 700))
+        parent_window.setMinimumSize(QtCore.QSize(1500, 800))
         parent_window.setWindowTitle(self.workspace_object.name + " - Capture Manager")
 
         self.CentralLayout_captureManagerWindow = QtWidgets.QWidget(parent_window)
@@ -122,9 +122,9 @@ class Ui_CaptureManagerWindow(object):
 
 
         # Button for starting service
-        self.q_button_start_services_button = QtWidgets.QPushButton(self.CentralLayout_captureManagerWindow)
-        self.q_button_start_services_button.setObjectName("startServicesButton_captureManagerWindow")
-        self.q_button_start_services_button.setText("Start Services")
+        #self.q_button_start_services_button = QtWidgets.QPushButton(self.CentralLayout_captureManagerWindow)
+        #self.q_button_start_services_button.setObjectName("startServicesButton_captureManagerWindow")
+        #self.q_button_start_services_button.setText("Start Services")
 
 
         # Button for clsing the workspace
@@ -146,7 +146,7 @@ class Ui_CaptureManagerWindow(object):
         self.q_row_scenario_buttons_row.addWidget(self.q_button_shutdown_vm)
         self.q_row_scenario_buttons_row.addWidget(self.q_button_run_scenario)
         self.q_row_scenario_buttons_row.addWidget(self.q_button_stop_and_restore_scenario)
-        self.q_row_scenario_buttons_row.addWidget(self.q_button_start_services_button)
+        #self.q_row_scenario_buttons_row.addWidget(self.q_button_start_services_button)
         self.q_row_scenario_buttons_row.addWidget(self.q_button_close_workspace_button)
         self.q_row_scenario_buttons_row.addItem(spacerItem1)
 
@@ -181,7 +181,7 @@ class Ui_CaptureManagerWindow(object):
         # self.q_row_buttons_node_buttons.addWidget(self.q_label_scenario_status_label)
         # self.q_row_buttons_node_buttons.addWidget(self.q_label_scenario_status_value)
         self.q_row_buttons_node_buttons.addItem(spacerItem2)
-        self.q_row_buttons_node_buttons.addWidget(self.q_button_add_node)          
+        self.q_row_buttons_node_buttons.addWidget(self.q_button_add_node)
         #self.q_row_buttons_node_buttons.addWidget(self.q_button_add_set_of_victim_nodes)
 
 
@@ -249,7 +249,7 @@ class Ui_CaptureManagerWindow(object):
         self.q_button_stop_and_restore_scenario.clicked.connect(self.stop_and_restore_scenario_button_clicked)
 
         # Start services button
-        self.q_button_start_services_button.clicked.connect(self.start_services_button_clicked)
+        #self.q_button_start_services_button.clicked.connect(self.start_services_button_clicked)
 
         # Close workspace button
         self.q_button_close_workspace_button.clicked.connect(
@@ -414,6 +414,18 @@ class Ui_CaptureManagerWindow(object):
             self.on_scenario_unit_right_click(point)
         else:
             self.on_project_right_click(point)
+        
+    def nodes_tree_widget_right_clicked(self, point):
+        '''
+        Triggered when the user right clicks on a node to show the context
+        menu.'''
+        index = self.q_tree_widget_nodes_list.indexAt(point)
+
+        if not index.isValid():
+            return
+
+        item = self.q_tree_widget_nodes_list.itemAt(point)
+        self.on_node_right_click(point)
 
     def on_project_right_click(self, point):
         '''
@@ -473,14 +485,21 @@ class Ui_CaptureManagerWindow(object):
         object in the mongoDB
         with the current state of the workspace_object value
         '''
-        self.db_helper.update_workspace(self.workspace_object)
-        # Show a pop up that the workspace has been saved
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Information)
-        msg.setText("Workspace Saved")
-        msg.setWindowTitle("The current workspace has been saved")
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec_()
+        result = self.db_helper.update_workspace(self.workspace_object)
+        if result:
+            save_error = QMessageBox()
+            save_error.setIcon(QMessageBox.Warning)
+            save_error.setText(f'Saving error: {result}\nDid not save!')
+            save_error.setWindowTitle('Save Error')
+            save_error.exec_()
+        if not result:
+            # Show a pop up that the workspace has been saved
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText("Workspace Saved")
+            msg.setWindowTitle("The current workspace has been saved")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
 
     def create_project_button_clicked(self):
         newProject_Window = QtWidgets.QDialog()
@@ -703,7 +722,7 @@ class Ui_CaptureManagerWindow(object):
             self.q_tree_widget_nodes_list.clear()
 
 
-    def node_right_clicked(self, point, capture_manager_window:QtWidgets.QMainWindow):
+    def node_right_clicked(self, point, parent_window):
         '''
         Triggered when user right clicks on a node
         shows the context menu that has edit node,
@@ -712,14 +731,16 @@ class Ui_CaptureManagerWindow(object):
         index = self.q_tree_widget_nodes_list.indexAt(point)
 
         if not index.isValid():
+            print(f'not index.isValid()')
             return
 
-        if not index.isValid() or index.parent().isValid():
+        if index.isValid() or index.parent().isValid():
             item = self.q_tree_widget_nodes_list.itemAt(point)
             if not item:
+                print(f'if not item: {item}')
                 return
             name = item.text(2)
-
+            print(f'inside main condition')
             menu = QtWidgets.QMenu()
             action_edit_node = QAction("Edit Node")
             action_delete_node = QAction("Delete Node")
@@ -727,12 +748,36 @@ class Ui_CaptureManagerWindow(object):
             menu.addAction(action_edit_node)
             menu.addAction(action_delete_node)
 
-            action_edit_node.triggered.connect(lambda: self.edit_node(name))
+            action_edit_node.triggered.connect(lambda: self.nodes_list_item_double_clicked(parent_window))
             action_delete_node.triggered.connect(lambda: self.delete_node(name))
 
             menu.exec_(self.q_tree_widget_nodes_list.mapToGlobal(point))
 
             return
+
+    def delete_node(self, node_name):
+        # Delete from object
+        scenario_o = None
+        break_flag = False
+        for project in self.workspace_object.projects:
+            if break_flag: 
+                break
+            for scenario in project.scenarios:
+                if break_flag:
+                    break
+                for device in list(scenario.devices):
+                    if device.name == node_name:
+                        scenario_o = scenario
+                        scenario.devices.remove(device)
+                        break
+                for network in list(scenario.networks):
+                    if network.name == node_name:
+                        scenario_o = scenario
+                        scenario.networks.remove(network)
+                        break
+        if scenario_o:
+            self.save_everything_button_clicked()
+            self.render_nodes_in_node_tree(scenario_o)
 
     # Capture controller functions
     def start_vm_button_clicked(self):
@@ -885,27 +930,94 @@ class Ui_CaptureManagerWindow(object):
         for project in self.workspace_object.projects:
             if project.name == selected_project_name:
                 for scenario in project.scenarios:
+                    # Check if there is already a scanning node.
                     if scenario.name == selected_scenario_name:
                         selected_scenario:Scenario = scenario
                         scanning_devices: List = [d.vm_binary_path != '' for d in selected_scenario.devices]
                         scanning_networks: List = [n.vm_binary_path != '' for n in selected_scenario.networks]
                         if not scanning_devices and not scanning_networks:
-                            return False
+                            return 'no-scan'
                         del scanning_devices
                         del scanning_networks
+                        # Padding in case of collision of uniqueness
+                        padding = 0
                         for i in range(count):
                             # get copy of node
                             node_copy = node_to_add.get_copy_of_node()
                             # append iterantio to .name and .id
-                            node_copy.id = node_copy.id + str(i)
-                            node_copy.name = node_copy.name + str(i)
+                            node_copy.id = node_copy.id + str(i+padding)
+                            if count != 1:
+                                node_copy.name = node_copy.name + str(i+padding)
                             node_copy.mac = str(RandMac("00:00:00:00:00:00"))
 
                             # get the last part of the ip address
                             ip_address_parts = node_copy.ip.split(".")
-                            ip_address_parts[3] = str(int(ip_address_parts[3]) + i)
+                            ip_address_parts[3] = str(int(ip_address_parts[3]) + i + padding)
                             node_copy.ip = ".".join(ip_address_parts)
 
+                            #Check if node has collision. 
+                            for device in scenario.devices:
+                                if node_copy.id == device.id:
+                                    padding += 1
+                                    node_copy.id = node_copy.id + str(i + padding)
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('ID collision. Changed ID by 1')
+                                    err_add.exec_()
+                                if node_copy.name == device.name:
+                                    padding += 1
+                                    node_copy.name = node_copy.name + str(i +padding)
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('Name collision. Changed name by appending')
+                                    err_add.exec_()
+                                if node_copy.mac == device.mac:
+                                    padding += 1
+                                    node_copy.mac = str(RandMac('000:00:00:00:00:00'))
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('MAC collision. Randomized again')
+                                    err_add.exec_()
+                                if node_copy.ip == device.ip:
+                                    padding += 1
+                                    ip_address_parts = node_copy.ip.split('.')
+                                    ip_address_parts[3] = str(int(ip_address_parts[3]) + i + padding)
+                                    node_copy.ip = '.'.join(ip_address_parts)
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('IP collision. Changed IP by 1')
+                                    err_add.exec_()
+                            for network in scenario.networks:
+                                if node_copy.id == network.id:
+                                    padding += 1
+                                    node_copy.id = node_copy.id + str(i + padding)
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('ID collision. Changed ID by 1')
+                                    err_add.exec_()
+                                if node_copy.name == network.name:
+                                    padding += 1
+                                    node_copy.name = node_copy.name + str(i +padding)
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('Name collision. Changed name by appending')
+                                    err_add.exec_()
+                                if node_copy.mac == network.mac:
+                                    padding += 1
+                                    node_copy.mac = str(RandMac('000:00:00:00:00:00'))
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('MAC collision. Randomized again')
+                                    err_add.exec_()
+                                if node_copy.ip == network.ip:
+                                    padding += 1
+                                    ip_address_parts = node_copy.ip.split('.')
+                                    ip_address_parts[3] = str(int(ip_address_parts[3]) + i + padding)
+                                    node_copy.ip = '.'.join(ip_address_parts)
+                                    err_add = QtWidgets.QMessageBox()
+                                    err_add.setWindowTitle('Warning Adding Node')
+                                    err_add.setText('IP collision. Changed IP by 1')
+                                    err_add.exec_()
                             selected_scenario.devices.append(node_copy)
                         break
                 break       

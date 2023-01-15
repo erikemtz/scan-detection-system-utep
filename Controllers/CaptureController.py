@@ -50,7 +50,7 @@ class CaptureControllerService:
         '''
         Runs the command in a new subprocess
         '''
-        command_string = f"VBoxManage guestcontrol {vm_name} --username {username} --password {password} run {command} {args}"
+        command_string = f'VBoxManage guestcontrol {vm_name} --username {username} --password {password} run {command} {args}'
         subprocess.Popen(command_string, shell=True, close_fds=True)
         
         # VBoxManage guestcontrol Scanner --username ubuntu --password ubuntu run nmap --system-dns 172.19.203.179"
@@ -72,13 +72,16 @@ class CaptureControllerService:
         # self.copy_from("pcaps", "/tmp/pcaps/*")
         
         try:
-
             # get the nodes object from scneario dict
             nodes_array = self.scenario_dict["devices"]
+            scenario_folder = self.scenario_dict["name"]
+            print(f"scenarion_name {scenario_folder}")
+            if not os.path.isdir(f"pcaps/{scenario_folder}"):
+                os.mkdir(f"pcaps/{scenario_folder}")
+            self.copy_from_recursive(f"pcaps/{scenario_folder}/", f"/tmp/pcaps/")
 
-            # iterate through the nodes list and copy the pcaps using the name.pcap
-            for node in nodes_array:
-                self.copy_from(f"pcaps/{node['name']}.pcap", f"/tmp/pcaps/{node['name']}*.pcap")
+            #self.copy_from_recursive(f"pcaps/", f"/tmp/pcaps/")
+
                 
 
 
@@ -107,7 +110,7 @@ class CaptureControllerService:
         self.run_command("bin/sh", "/home/ubuntu/core/Files/CoreStart.sh")
 
         # wait 15 seconds for the core to start
-        for i in range(15):
+        for i in range(10):
             print("Waiting for core to start..." + str(i))
             time.sleep(1)
 
@@ -119,22 +122,30 @@ class CaptureControllerService:
             time.sleep(1)
 
 
-        # wait 10 seconds for the vm to start
-        for i in range(30):
-            print("Waiting for vm to start..." + str(i))
-            time.sleep(1)
+        try:
+            external_vm_dictionary["vm_node_name"]
+            # wait 10 seconds for the vm to start
+            for i in range(10):
+                print("Waiting for vm to start..." + str(i) + "/30")
+                time.sleep(1)
+        except Exception as e:
+            print("No external vm")
 
-        
 
-        #  start the other vm
-        if external_vm_dictionary is not None:
-            self.run_command_using_name_username_password_command_and_args(
-                external_vm_dictionary["vm_node_name"],
-                external_vm_dictionary["vm_node_username"],
-                external_vm_dictionary["vm_node_password"],
-                external_vm_dictionary["vm_binary_path"],
-                external_vm_dictionary["vm_args"]
-            )
+        try:
+            #  start the other vm
+            if external_vm_dictionary is not None and external_vm_dictionary["vm_node_name"] is not None:
+                print("Found vm dictionary")
+                print(external_vm_dictionary)
+                self.run_command_using_name_username_password_command_and_args(
+                    external_vm_dictionary["vm_node_name"],
+                    external_vm_dictionary["vm_node_username"],
+                    external_vm_dictionary["vm_node_password"],
+                    external_vm_dictionary["vm_binary_path"],
+                    external_vm_dictionary["vm_args"]
+                )
+        except Exception as e:
+            print("Could not start vm")
 
         # run the command to start the services
 
@@ -323,65 +334,12 @@ class CaptureControllerService:
         command = self.vm_initial_string_command + f"copyto --target-directory {guest_path} {host_file_path}"
         os.system(command)
 
-    def copy_from(self, host_path, guest_file_path):
+    def copy_from_recursive(self, host_path, guest_file_path):
         '''
         Copies the file given in host_file path
         and copies it to the guest path
         '''
-        command = self.vm_initial_string_command + f"copyfrom --target-directory {host_path} {guest_file_path}"
+
+        # Use --R for recursive
+        command = self.vm_initial_string_command + f"copyfrom -R --target-directory {host_path} {guest_file_path}"
         os.system(command)
-
-# add logic in case the file is ran from the command line
-
-
-if __name__ == "__main__":
-    cc = CaptureControllerService()
-
-    if len(sys.argv) == 1:
-        print("Please provide a command, use -h for help")
-    elif sys.argv[1] == "core-cleanup":
-        cc.core_cleanup()
-    elif sys.argv[1] == "core-start":
-        cc.core_start_from_xml_file_path()
-    elif sys.argv[1] == "start-services":
-        cc.start_services()
-    elif sys.argv[1] == "start":
-        cc.start_vm()
-    elif sys.argv[1] == "stop":
-        cc.stop_vm()
-    elif sys.argv[1] == "test":
-        cc.test_()
-    elif sys.argv[1] == "open-wireshark":
-        cc.open_wireshark()
-    elif sys.argv[1] == "add-shared-folder":
-        cc.add_shared_folder(sys.argv[2], sys.argv[3])
-    elif sys.argv[1] == "emergency-stop":
-        cc.emergency_stop()
-    elif sys.argv[1] == "shutdown-vm":
-        cc.shutdown_vm()
-    elif sys.argv[1] == "restart-vm":
-        cc.restart_vm()
-    elif sys.argv[1] == "copy-to":
-        cc.copy_to("/Users/erikmtz/Documents/GitProjects/scan-detection-system-utep/test.txt", "/home/ubuntu/core/Files/")
-    elif sys.argv[1] == "run":
-        print("Attempting to run command: " + sys.argv[2])
-        if len(sys.argv) == 3:
-            cc.run_command(sys.argv[2])
-        else:
-            cc.run_command(sys.argv[2], sys.argv[3])
-    elif sys.argv[1] == "-h" or sys.argv[1] == "--help":
-        print("""
-        Usage:
-        captureController.py [command] [args]
-        Commands:
-        core-cleanup
-        core-start
-        start-services
-        start
-        stop
-        open-wireshark
-        add-shared-folder
-        run [command] [args]
-        """)
-    else:
-        print("Command not recognized, please use -h or --help for help")
